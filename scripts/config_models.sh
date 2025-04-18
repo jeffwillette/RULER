@@ -28,7 +28,7 @@ MODEL_SELECT() {
     MODEL_NAME=$1
     MODEL_DIR=$2
     ENGINE_DIR=$3
-    
+
     case $MODEL_NAME in
         llama2-7b-chat)
             MODEL_PATH="${MODEL_DIR}/llama2-7b-chat-hf"
@@ -39,6 +39,11 @@ MODEL_SELECT() {
             MODEL_PATH="${MODEL_DIR}/llama3.1-8b-Instruct"
             MODEL_TEMPLATE_TYPE="meta-llama3"
             MODEL_FRAMEWORK="vllm"
+            ;;
+        llama3.2-1b-chat)
+            MODEL_PATH="${MODEL_DIR}/Llama-3.2-1B-Instruct"
+            MODEL_TEMPLATE_TYPE="meta-llama3"
+            MODEL_FRAMEWORK="hf"
             ;;
         jamba1.5-mini)
             MODEL_PATH="${MODEL_DIR}/Jamba-1.5-Mini"

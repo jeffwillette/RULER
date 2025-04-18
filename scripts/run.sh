@@ -25,7 +25,8 @@ fi
 # Root Directories
 GPUS="1" # GPU size for tensor_parallel.
 ROOT_DIR="benchmark_root" # the path that stores generated task samples and model predictions.
-MODEL_DIR="../.." # the path that contains individual model folders from HUggingface.
+# MODEL_DIR="../.." # the path that contains individual model folders from HUggingface.
+MODEL_DIR="meta-llama"
 ENGINE_DIR="." # the path that contains individual engine folders from TensorRT-LLM.
 BATCH_SIZE=1  # increase to improve GPU utilization
 
@@ -95,38 +96,45 @@ for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
     mkdir -p ${PRED_DIR}
     
     for TASK in "${TASKS[@]}"; do
-        python data/prepare.py \
-            --save_dir ${DATA_DIR} \
-            --benchmark ${BENCHMARK} \
-            --task ${TASK} \
-            --tokenizer_path ${TOKENIZER_PATH} \
-            --tokenizer_type ${TOKENIZER_TYPE} \
-            --max_seq_length ${MAX_SEQ_LENGTH} \
-            --model_template_type ${MODEL_TEMPLATE_TYPE} \
-            --num_samples ${NUM_SAMPLES} \
-            ${REMOVE_NEWLINE_TAB}
+        echo "doing: ${TASK}"
+
+        # python data/prepare.py \
+        #     --save_dir ${DATA_DIR} \
+        #     --benchmark ${BENCHMARK} \
+        #     --task ${TASK} \
+        #     --tokenizer_path ${TOKENIZER_PATH} \
+        #     --tokenizer_type ${TOKENIZER_TYPE} \
+        #     --max_seq_length ${MAX_SEQ_LENGTH} \
+        #     --model_template_type ${MODEL_TEMPLATE_TYPE} \
+        #     --num_samples ${NUM_SAMPLES} \
+        #     ${REMOVE_NEWLINE_TAB}
         
-        start_time=$(date +%s)
-        python pred/call_api.py \
-            --data_dir ${DATA_DIR} \
-            --save_dir ${PRED_DIR} \
-            --benchmark ${BENCHMARK} \
-            --task ${TASK} \
-            --server_type ${MODEL_FRAMEWORK} \
-            --model_name_or_path ${MODEL_PATH} \
-            --temperature ${TEMPERATURE} \
-            --top_k ${TOP_K} \
-            --top_p ${TOP_P} \
-            --batch_size ${BATCH_SIZE} \
-            ${STOP_WORDS}
-        end_time=$(date +%s)
-        time_diff=$((end_time - start_time))
-        total_time=$((total_time + time_diff))
+        # start_time=$(date +%s)
+        # USE_ATTN_POSTFIX=0 \
+        # ATTN_IMPLEMENTATION=hip_attention \
+        # CUDA_VISIBLE_DEVICES=5 \
+        #     python pred/call_api.py \
+        #         --data_dir ${DATA_DIR} \
+        #         --save_dir ${PRED_DIR} \
+        #         --benchmark ${BENCHMARK} \
+        #         --task ${TASK} \
+        #         --server_type ${MODEL_FRAMEWORK} \
+        #         --model_name_or_path ${MODEL_PATH} \
+        #         --temperature ${TEMPERATURE} \
+        #         --top_k ${TOP_K} \
+        #         --top_p ${TOP_P} \
+        #         --batch_size ${BATCH_SIZE} \
+        #         ${STOP_WORDS}
+        # end_time=$(date +%s)
+        # time_diff=$((end_time - start_time))
+        # total_time=$((total_time + time_diff))
     done
     
-    python eval/evaluate.py \
-        --data_dir ${PRED_DIR} \
-        --benchmark ${BENCHMARK}
+    USE_ATTN_POSTFIX=0 \
+    ATTN_IMPLEMENTATION=hip_attention \
+        python eval/evaluate.py \
+            --data_dir ${PRED_DIR} \
+            --benchmark ${BENCHMARK}
 done
 
 echo "Total time spent on call_api: $total_time seconds"
