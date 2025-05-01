@@ -85,26 +85,31 @@ elif [ "$MODEL_FRAMEWORK" == "sglang" ]; then
 fi
 
 
-# Start client (prepare data / call model API / obtain final metrics)
 attn=hip_attention
 # postfix=(
-#     recompute_dense-window_1024-diff_1-w_64
-#     recompute_dense-window_2048-diff_1-w_64
-#     recompute_dense-window_4096-diff_1-w_64
-#     recompute_dense-window_4096-diff_1-w_512
+#     recompute_dense-window_1024-diff_1-w_64-decode_dense
+#     recompute_dense-window_2048-diff_1-w_64-decode_dense
+#     recompute_dense-window_4096-diff_1-w_64-decode_dense
+#     recompute_dense-window_4096-diff_1-w_512-decode_dense
 # )
 
+# postfix=(
+#     recompute_dense-window_0-diff_1-w_64-decode_dense
+#     recompute_dense-window_1024-diff_0-w_64-decode_dense
+#     recompute_dense-window_4096-diff_1-w_128-decode_dense
+#     recompute_dense-window_4096-diff_1-w_256-decode_dense
+# )
+
+# for plotting tensors
 postfix=(
-    recompute_dense-window_0-diff_1-w_64
-    recompute_dense-window_1024-diff_0-w_64
-    recompute_dense-window_4096-diff_1-w_128
-    recompute_dense-window_4096-diff_1-w_256
+    recompute_dense-window_2048-diff_1-w_64-decode_dense
 )
 
-
+# for baseline
 # attn=flash_attention_2
 # postfix=none
 
+# Start client (prepare data / call model API / obtain final metrics)
 total_time=0
 do_pred=1
 for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
@@ -136,8 +141,9 @@ for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
                 start_time=$(date +%s)
                 HIP_DEBUG=0 \
                 USE_ATTN_POSTFIX=$POSTFIX \
+                SAVE_TENSORS_FOR_PLOTTING=1 \
                 ATTN_IMPLEMENTATION=$attn \
-                CUDA_VISIBLE_DEVICES=4 \
+                CUDA_VISIBLE_DEVICES=5 \
                     python pred/call_api.py \
                         --data_dir ${DATA_DIR} \
                         --save_dir ${PRED_DIR} \
