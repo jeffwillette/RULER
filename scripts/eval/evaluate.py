@@ -200,7 +200,7 @@ def main():
     print(f"Total tasks: {list(TASKS.keys())}")
 
     # Aggregate all prediction files
-    aggregate_chunk(args.data_dir)
+    # aggregate_chunk(args.data_dir)
 
     # Get scores and nulls
     jsonl_files = [
@@ -210,13 +210,13 @@ def main():
     subm_results = {}
 
     attn_implementation = os.environ.get("ATTN_IMPLEMENTATION", "flash_attention_2")
-    recompute = os.environ.get("USE_ATTN_POSTFIX", "0") == "1"
+    recompute = os.environ.get("USE_ATTN_POSTFIX", "0")
 
     for task, config in TASKS.items():
 
         fname = f"{task}-{attn_implementation}-postfix-{recompute}.jsonl"
         if fname not in jsonl_files:
-            print(f"Prediction file {task}.jsonl is not found.")
+            print(f"Prediction file {fname} is not found.")
             continue
 
         print(f"Evaluate task {task}...")

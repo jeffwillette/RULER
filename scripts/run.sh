@@ -86,7 +86,27 @@ fi
 
 
 # Start client (prepare data / call model API / obtain final metrics)
+attn=hip_attention
+# postfix=(
+#     recompute_dense-window_1024-diff_1-w_64
+#     recompute_dense-window_2048-diff_1-w_64
+#     recompute_dense-window_4096-diff_1-w_64
+#     recompute_dense-window_4096-diff_1-w_512
+# )
+
+postfix=(
+    recompute_dense-window_0-diff_1-w_64
+    recompute_dense-window_1024-diff_0-w_64
+    recompute_dense-window_4096-diff_1-w_128
+    recompute_dense-window_4096-diff_1-w_256
+)
+
+
+# attn=flash_attention_2
+# postfix=none
+
 total_time=0
+do_pred=1
 for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
     
     RESULTS_DIR="${ROOT_DIR}/${MODEL_NAME}/${BENCHMARK}/${MAX_SEQ_LENGTH}"
@@ -94,47 +114,57 @@ for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
     PRED_DIR="${RESULTS_DIR}/pred"
     mkdir -p ${DATA_DIR}
     mkdir -p ${PRED_DIR}
-    
-    for TASK in "${TASKS[@]}"; do
-        echo "doing: ${TASK}"
 
-        python data/prepare.py \
-            --save_dir ${DATA_DIR} \
-            --benchmark ${BENCHMARK} \
-            --task ${TASK} \
-            --tokenizer_path ${TOKENIZER_PATH} \
-            --tokenizer_type ${TOKENIZER_TYPE} \
-            --max_seq_length ${MAX_SEQ_LENGTH} \
-            --model_template_type ${MODEL_TEMPLATE_TYPE} \
-            --num_samples ${NUM_SAMPLES} \
-            ${REMOVE_NEWLINE_TAB}
+    if [[ "$do_pred" -eq 1 ]]; then
+        echo "doing ${MAX_SEQ_LENGTH}"
         
-        start_time=$(date +%s)
-        USE_ATTN_POSTFIX=1 \
-        ATTN_IMPLEMENTATION=hip_attention \
-        CUDA_VISIBLE_DEVICES=5 \
-            python pred/call_api.py \
-                --data_dir ${DATA_DIR} \
-                --save_dir ${PRED_DIR} \
-                --benchmark ${BENCHMARK} \
-                --task ${TASK} \
-                --server_type ${MODEL_FRAMEWORK} \
-                --model_name_or_path ${MODEL_PATH} \
-                --temperature ${TEMPERATURE} \
-                --top_k ${TOP_K} \
-                --top_p ${TOP_P} \
-                --batch_size ${BATCH_SIZE} \
-                ${STOP_WORDS}
-        end_time=$(date +%s)
-        time_diff=$((end_time - start_time))
-        total_time=$((total_time + time_diff))
-    done
+        for TASK in "${TASKS[@]}"; do
+            echo "doing: ${TASK}"
+
+            for POSTFIX in "${postfix[@]}"; do
+                python data/prepare.py \
+                    --save_dir ${DATA_DIR} \
+                    --benchmark ${BENCHMARK} \
+                    --task ${TASK} \
+                    --tokenizer_path ${TOKENIZER_PATH} \
+                    --tokenizer_type ${TOKENIZER_TYPE} \
+                    --max_seq_length ${MAX_SEQ_LENGTH} \
+                    --model_template_type ${MODEL_TEMPLATE_TYPE} \
+                    --num_samples ${NUM_SAMPLES} \
+                    ${REMOVE_NEWLINE_TAB}
+                
+                start_time=$(date +%s)
+                HIP_DEBUG=0 \
+                USE_ATTN_POSTFIX=$POSTFIX \
+                ATTN_IMPLEMENTATION=$attn \
+                CUDA_VISIBLE_DEVICES=4 \
+                    python pred/call_api.py \
+                        --data_dir ${DATA_DIR} \
+                        --save_dir ${PRED_DIR} \
+                        --benchmark ${BENCHMARK} \
+                        --task ${TASK} \
+                        --server_type ${MODEL_FRAMEWORK} \
+                        --model_name_or_path ${MODEL_PATH} \
+                        --temperature ${TEMPERATURE} \
+                        --top_k ${TOP_K} \
+                        --top_p ${TOP_P} \
+                        --batch_size ${BATCH_SIZE} \
+                        ${STOP_WORDS}
+                end_time=$(date +%s)
+                time_diff=$((end_time - start_time))
+                total_time=$((total_time + time_diff))
+            done
+        done
+    fi
     
-    USE_ATTN_POSTFIX=1 \
-    ATTN_IMPLEMENTATION=hip_attention \
-        python eval/evaluate.py \
-            --data_dir ${PRED_DIR} \
-            --benchmark ${BENCHMARK}
+    for POSTFIX in "${postfix[@]}"; do
+        echo "\n\nEVAL RESULTS FOR ::::::: ${POSTFIX} :::::::"
+        USE_ATTN_POSTFIX=$POSTFIX \
+        ATTN_IMPLEMENTATION=$attn \
+            python eval/evaluate.py \
+                --data_dir ${PRED_DIR} \
+                --benchmark ${BENCHMARK}
+    done
 done
 
 echo "Total time spent on call_api: $total_time seconds"

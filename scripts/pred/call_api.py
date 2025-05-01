@@ -253,7 +253,7 @@ def main():
     task_file = args.data_dir / args.task / f"{args.subset}.jsonl"
 
     attn_implementation = os.environ.get("ATTN_IMPLEMENTATION", "flash_attention_2")
-    recompute = os.environ.get("USE_ATTN_POSTFIX", "0") == "1"
+    recompute = os.environ.get("USE_ATTN_POSTFIX", "0")
 
     if args.chunk_amount > 1:
         pred_file = args.save_dir / f"{args.task}-{args.chunk_idx}.jsonl"
