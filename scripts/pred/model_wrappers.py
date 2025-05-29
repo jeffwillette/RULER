@@ -19,7 +19,6 @@ from typing import Dict, List, Optional
 
 import requests
 import torch
-from hip_research.main.long_eval_decode_test import Config, init_model
 
 
 class HuggingFaceModel:
@@ -39,21 +38,62 @@ class HuggingFaceModel:
                 )
             }
 
-        print(f"loading recompute model")
+        if os.environ.get("ATTN_IMPLEMENTATION", "flash_attention_2") in [
+            "hip_attention",
+            "flash_attention_2",
+        ]:
+            from hip_research.main.long_eval_decode_test import (Config,
+                                                                 init_model)
 
-        recompute_n = 1024
-        config = Config(
-            model=name_or_path,
-            recompute_n=recompute_n,
-            long_ce_block_size=4096,
-            long_ppl_alpha=2.0,
-            long_ppl_beta=-2.0,
-        )
+            print(f"loading recompute model")
 
-        self.pipeline = None
+            recompute_n = 1024
+            config = Config(
+                model=name_or_path,
+                recompute_n=recompute_n,
+                long_ce_block_size=4096,
+                long_ppl_alpha=2.0,
+                long_ppl_beta=-2.0,
+            )
 
-        model, _ = init_model(config)
-        self.model = model.cuda()
+            self.pipeline = None
+
+            model, _ = init_model(config)
+            self.model = model.cuda()
+        elif "minference" in os.environ.get("ATTN_IMPLEMENTATION", "flash_attention_2"):
+
+            def init_model():
+                device = "cuda:0"
+
+                import transformers
+                from minference import MInference
+
+                attn_implementation = os.environ.get(
+                    "ATTN_IMPLEMENTATION", "minference"
+                )
+                postfix = os.environ.get("USE_ATTN_POSTFIX", "none")
+                if "delta" in postfix:
+                    attn_implementation += "-delta"
+
+                model_config = transformers.AutoConfig.from_pretrained(
+                    name_or_path,
+                    torch_dtype=torch.bfloat16,
+                )
+
+                model = transformers.AutoModelForCausalLM.from_pretrained(
+                    name_or_path,
+                    config=model_config,
+                    torch_dtype=torch.bfloat16,
+                )
+
+                minference_patch = MInference(attn_implementation, name_or_path)
+                model = minference_patch(model)
+
+                return model, None
+
+            model, _ = init_model()
+            self.model = model.cuda()
+            self.pipeline = None
 
         # ORIGINAL ===============================================
         # try:

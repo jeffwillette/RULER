@@ -136,8 +136,10 @@ def write_evaluation(results: dict):
         ["Nulls"] + nulls,
     ]
 
+    recompute = os.environ.get("USE_ATTN_POSTFIX", "0")
     output_file = os.path.join(
-        args.data_dir, "summary.csv" if len(tasks) > 1 else f"summary-{tasks[0]}.csv"
+        args.data_dir,
+        f"{recompute}-summary.csv" if len(tasks) > 1 else f"summary-{tasks[0]}.csv",
     )
     df = pd.DataFrame(dfs)
     df.to_csv(output_file, index=False)

@@ -274,6 +274,13 @@ def main():
             for sample in read_manifest(task_file)
             if sample["index"] not in pred_index
         ]
+
+        # print(f"{data}=")
+        # print(f"{len(data)=}")
+        # if len(data) == 0:
+        #     print("SKIPPING")
+        #     exit()
+
     else:
         data = read_manifest(task_file)
 

@@ -85,29 +85,68 @@ elif [ "$MODEL_FRAMEWORK" == "sglang" ]; then
 fi
 
 
-attn=hip_attention
+
+
+# for minference
+# attn=minference
+# postfix=( # THIS ONE IS NOT DONE RUNNING YET
+#     delta-window_0-diff_0-w_64-decode_dense
+#     delta-window_0-diff_1-w_64-decode_dense
+#     plain-window_0-diff_0-w_64-decode_dense
+# )
 # postfix=(
+#     delta-window_0-diff_1-w_128-decode_dense
+#     delta-window_0-diff_1-w_256-decode_dense
+#     delta-window_0-diff_1-w_512-decode_dense
+# )
+
+attn=hip_attention
+postfix=(
+    recompute_dense-window_0-diff_0-w_64-decode_dense
+)
+# postfix=( # done running
 #     recompute_dense-window_1024-diff_1-w_64-decode_dense
 #     recompute_dense-window_2048-diff_1-w_64-decode_dense
 #     recompute_dense-window_4096-diff_1-w_64-decode_dense
-#     recompute_dense-window_4096-diff_1-w_512-decode_dense
-# )
-
-# postfix=(
-#     recompute_dense-window_0-diff_1-w_64-decode_dense
-#     recompute_dense-window_1024-diff_0-w_64-decode_dense
 #     recompute_dense-window_4096-diff_1-w_128-decode_dense
 #     recompute_dense-window_4096-diff_1-w_256-decode_dense
+#     recompute_dense-window_4096-diff_1-w_512-decode_dense
+#     recompute_dense-window_4096-diff_1-w_1024-decode_dense
+#     recompute_dense-window_4096-diff_1-w_2048-decode_dense
+#     recompute_dense-window_1024-diff_0-w_64-decode_dense
+#     recompute_dense-window_2048-diff_0-w_64-decode_dense
+#     recompute_dense-window_4096-diff_0-w_64-decode_dense
+#     recompute_dense-window_8192-diff_0-w_64-decode_dense
+#     recompute_dense-window_0-diff_1-w_64-decode_dense
+#     recompute_dense-window_8192-diff_1-w_64-decode_dense
+#     recompute_dense-window_16384-diff_0-w_64-decode_dense
+#     recompute_dense-window_32768-diff_0-w_64-decode_dense
+#     recompute_dense-window_1024-diff_0-w_64-decode_dense_JUST_RETURN
+#     recompute_dense-window_2048-diff_0-w_64-decode_dense_JUST_RETURN
+#     recompute_dense-window_4096-diff_0-w_64-decode_dense_JUST_RETURN
+
+#     recompute_dense-window_8192-diff_0-w_64-decode_dense_JUST_RETURN
+#     recompute_dense-window_16384-diff_0-w_64-decode_dense_JUST_RETURN
+#     recompute_dense-window_32768-diff_0-w_64-decode_dense_JUST_RETURN
+#     recompute_dense-window_0-diff_1-w_128-decode_dense
+#     recompute_dense-window_0-diff_1-w_256-decode_dense
+#     recompute_dense-window_0-diff_1-w_512-decode_dense
+#     recompute_dense-window_0-diff_1-w_1024-decode_dense
+#     recompute_dense-window_0-diff_1-w_2048-decode_dense
+#     recompute_dense-window_0-diff_0-w_64-decode_dense_JUST_RETURN
+#     recompute_dense-window_65536-diff_0-w_64-decode_dense_JUST_RETURN
 # )
 
 # for plotting tensors
-postfix=(
-    recompute_dense-window_0-diff_1-w_64-decode_dense-EARLY_RETURN
-    recompute_dense-window_0-diff_1-w_128-decode_dense-EARLY_RETURN
-    recompute_dense-window_0-diff_1-w_256-decode_dense-EARLY_RETURN
-    recompute_dense-window_0-diff_1-w_512-decode_dense-EARLY_RETURN
-    recompute_dense-window_0-diff_1-w_1024-decode_dense-EARLY_RETURN
-)
+# postfix=(
+    # recompute_dense-window_0-diff_1-w_64-decode_dense-flash_attn_plot
+    # recompute_dense-window_0-diff_1-w_64-decode_dense-plot
+    # recompute_dense-window_2048-diff_1-w_64-decode_dense-plot
+    # recompute_dense-window_0-diff_0-w_64-decode_dense-plot
+    # recompute_dense-window_2048-diff_0-w_64-decode_dense-plot
+    # recompute_dense-window_0-diff_0-w_64-decode_dense-plot_JUST_RETURN
+    # recompute_dense-window_2048-diff_0-w_64-decode_dense-plot_JUST_RETURN
+# )
 
 # for baseline
 # attn=flash_attention_2
@@ -117,6 +156,10 @@ postfix=(
 total_time=0
 do_pred=1
 for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
+    # if [ $MAX_SEQ_LENGTH -gt 8192 ]; then
+    #     echo "continue"
+    #     continue  # Skip the iteration when i is 3
+    # fi
     
     RESULTS_DIR="${ROOT_DIR}/${MODEL_NAME}/${BENCHMARK}/${MAX_SEQ_LENGTH}"
     DATA_DIR="${RESULTS_DIR}/data"
@@ -131,23 +174,23 @@ for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
             echo "doing: ${TASK}"
 
             for POSTFIX in "${postfix[@]}"; do
-                python data/prepare.py \
-                    --save_dir ${DATA_DIR} \
-                    --benchmark ${BENCHMARK} \
-                    --task ${TASK} \
-                    --tokenizer_path ${TOKENIZER_PATH} \
-                    --tokenizer_type ${TOKENIZER_TYPE} \
-                    --max_seq_length ${MAX_SEQ_LENGTH} \
-                    --model_template_type ${MODEL_TEMPLATE_TYPE} \
-                    --num_samples ${NUM_SAMPLES} \
-                    ${REMOVE_NEWLINE_TAB}
+               #  python data/prepare.py \
+               #      --save_dir ${DATA_DIR} \
+               #      --benchmark ${BENCHMARK} \
+               #      --task ${TASK} \
+               #      --tokenizer_path ${TOKENIZER_PATH} \
+               #      --tokenizer_type ${TOKENIZER_TYPE} \
+               #      --max_seq_length ${MAX_SEQ_LENGTH} \
+               #      --model_template_type ${MODEL_TEMPLATE_TYPE} \
+               #      --num_samples ${NUM_SAMPLES} \
+               #      ${REMOVE_NEWLINE_TAB}
                 
                 start_time=$(date +%s)
                 HIP_DEBUG=0 \
                 USE_ATTN_POSTFIX=$POSTFIX \
                 SAVE_TENSORS_FOR_PLOTTING=0 \
                 ATTN_IMPLEMENTATION=$attn \
-                CUDA_VISIBLE_DEVICES=4 \
+                CUDA_VISIBLE_DEVICES=1 \
                     python pred/call_api.py \
                         --data_dir ${DATA_DIR} \
                         --save_dir ${PRED_DIR} \
