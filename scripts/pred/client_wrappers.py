@@ -71,7 +71,7 @@ class Client(abc.ABC):
         return response
         
     @retry(wait=wait_random_exponential(min=15, max=60), stop=stop_after_attempt(3))
-    def _send_request(self, request, route="generate"):
+    def _send_request(self, request, route="v1/completions"):
         if self.ssh_server and self.ssh_key_path:
             import sshtunnel_requests
 
@@ -82,7 +82,7 @@ class Client(abc.ABC):
                 headers={"Content-Type": "application/json"},
             ).json()
         else:
-            outputs = requests.put(
+            outputs = requests.post(
                 url="http://{}:{}/{}".format(self.server_host, self.server_port, route),
                 data=json.dumps(request),
                 headers={"Content-Type": "application/json"},
@@ -144,6 +144,38 @@ class VLLMClient(Client):
         random_seed,
         stop: List[str],
     ):
+
+        if os.environ.get("ATTN_IMPLEMENTATION", "flash_attention_2") == "cacheblend":
+            seq_len = os.environ.get("MAX_SEQ_LENGTH", 131072)
+            chunks = seq_len // 2048
+            block = len(prompts[0]) // chunks
+
+            out, curr = "", 0
+            while curr < len(prompts[0]):
+                if len(prompts[0]) <= curr:
+                    break
+
+                s = prompts[0][curr:curr + block]
+                out += s
+                if len(s) == block and curr + block <= len(prompts[0]):
+                    out += " # # "
+
+                curr += block
+
+
+            request = {
+                "prompt": out,
+                "max_tokens": tokens_to_generate,
+                "temperature": temperature,
+                "top_k": top_k,
+                "top_p": top_p,
+                "stop": stop,
+            }
+            # TODO: random seed is not supported?
+            outputs = self._send_request(request)
+            outputs = outputs["choices"][0]['text']
+            return outputs
+
         request = {
             "prompt": prompts[0],
             "max_tokens": tokens_to_generate,
@@ -154,7 +186,7 @@ class VLLMClient(Client):
         }
         # TODO: random seed is not supported?
         outputs = self._send_request(request)
-        outputs = outputs['text']
+        outputs = outputs["choices"][0]['text']
         return outputs
 
 

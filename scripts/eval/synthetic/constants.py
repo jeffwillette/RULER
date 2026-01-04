@@ -21,13 +21,22 @@ TASK_NAME: {
 """
 
 
-def string_match_part(preds, refs):
-    score = sum([max([1.0 if r.lower() in pred.lower() else 0.0 for r in ref]) for pred, ref in zip(preds, refs)]) / len(preds) * 100
-    return round(score, 2)
+def string_match_part(preds, refs, reduce=True):
+    if reduce:
+        score = sum([max([1.0 if r.lower() in pred.lower() else 0.0 for r in ref]) for pred, ref in zip(preds, refs)]) / len(preds) * 100
+        return round(score, 2)
 
-def string_match_all(preds, refs):
-    score = sum([sum([1.0 if r.lower() in pred.lower() else 0.0 for r in ref]) / len(ref) for pred, ref in zip(preds, refs)]) / len(preds) * 100
-    return round(score, 2)
+    scores = [max([1.0 if r.lower() in pred.lower() else 0.0 for r in ref]) for pred, ref in zip(preds, refs)]
+    return scores
+
+def string_match_all(preds, refs, reduce=True):
+    if reduce:
+        score = sum([sum([1.0 if r.lower() in pred.lower() else 0.0 for r in ref]) / len(ref) for pred, ref in zip(preds, refs)]) / len(preds) * 100
+        return round(score, 2)
+
+    scores = [sum([1.0 if r.lower() in pred.lower() else 0.0 for r in ref]) / len(ref) for pred, ref in zip(preds, refs)]
+    return scores
+
     
 
 TASKS = {

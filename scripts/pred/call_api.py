@@ -40,6 +40,7 @@ import threading
 import time
 import traceback
 from pathlib import Path
+import signal
 
 import yaml
 from nemo.collections.asr.parts.utils.manifest_utils import read_manifest
@@ -65,6 +66,9 @@ parser = argparse.ArgumentParser()
 # Data
 parser.add_argument(
     "--data_dir", type=Path, required=True, help="path to load the dataset jsonl files"
+)
+parser.add_argument(
+    "--comment-tag", type=Path, required=True, help="just to identity processes in htop"
 )
 parser.add_argument(
     "--save_dir",
@@ -392,7 +396,28 @@ def main():
                 start_idx = end_idx + 1
 
     print(f"Used time: {round((time.time() - start_time) / 60, 1)} minutes")
+    if os.environ.get("ATTN_IMPLEMENTATION", "flash_attention_2") == "cacheblend":
+        from lmcache.integration.vllm.utils import ENGINE_NAME
+        from lmcache.v1.cache_engine import LMCacheEngineBuilder
+        LMCacheEngineBuilder.destroy(ENGINE_NAME)
 
 
 if __name__ == "__main__":
+    def signal_handler(sig, frame):
+        """
+        This function will be called when SIGINT is received.
+        """
+        print('\nSIGINT (Ctrl+C) detected. Performing cleanup...')
+        # Add your cleanup or custom code here
+        print('Exiting gracefully.')
+
+        if os.environ.get("ATTN_IMPLEMENTATION", "flash_attention_2") == "cacheblend":
+            from lmcache.integration.vllm.utils import ENGINE_NAME
+            from lmcache.v1.cache_engine import LMCacheEngineBuilder
+            LMCacheEngineBuilder.destroy(ENGINE_NAME)
+
+        sys.exit(0) # Exit the program after handling the signal
+
+    # Register the signal handler for SIGINT
+    signal.signal(signal.SIGINT, signal_handler)
     main()

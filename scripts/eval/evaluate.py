@@ -137,6 +137,10 @@ def write_evaluation(results: dict):
     ]
 
     recompute = os.environ.get("USE_ATTN_POSTFIX", "0")
+    attn_method = os.environ.get("ATTN_IMPLEMENTATION", "flash_attention_2")
+    if attn_method in ["ape", "cacheblend"]:
+        recompute = f"{attn_method}-{recompute}"
+
     output_file = os.path.join(
         args.data_dir,
         f"{recompute}-summary.csv" if len(tasks) > 1 else f"summary-{tasks[0]}.csv",

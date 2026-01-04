@@ -85,10 +85,17 @@ elif [ "$MODEL_FRAMEWORK" == "sglang" ]; then
 fi
 
 
+# attn=ape
+# postfix=test-bugfix
+
+# attn=cacheblend
+# postfix=test-bugfix
 
 
 # for minference
 # attn=minference
+# postfix=delta-window_0-diff_1-w_64-decode_dense-smooth_1_trash
+
 # postfix=( # THIS ONE IS NOT DONE RUNNING YET
 #     delta-window_0-diff_0-w_64-decode_dense
 #     delta-window_0-diff_1-w_64-decode_dense
@@ -102,7 +109,7 @@ fi
 
 attn=hip_attention
 postfix=(
-    recompute_dense-window_0-diff_0-w_64-decode_dense
+    recompute_dense-window_2048-diff_1-w_64-decode_dense_rerun-smooth_1-ema_0.2-abgtriton
 )
 # postfix=( # done running
 #     recompute_dense-window_1024-diff_1-w_64-decode_dense
@@ -148,19 +155,33 @@ postfix=(
     # recompute_dense-window_2048-diff_0-w_64-decode_dense-plot_JUST_RETURN
 # )
 
+# postfix=(
+    # recompute_dense-window_2048-diff_1-w_64-decode_dense-smooth_0-plot
+    # recompute_dense-window_2048-diff_0-w_64-decode_dense-smooth_0-plot_JUST_RETURN
+    # recompute_dense-window_0-diff_1-w_64-decode_dense-smooth_0-flash_attn_plot
+    # recompute_dense-window_2048-diff_1-w_64-decode_dense-smooth_0-flash_attn_plot
+# )
+
 # for baseline
 # attn=flash_attention_2
 # postfix=none
 
 # Start client (prepare data / call model API / obtain final metrics)
 total_time=0
-do_pred=1
+do_pred=0
 for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
-    # if [ $MAX_SEQ_LENGTH -gt 8192 ]; then
+    # if [ $MAX_SEQ_LENGTH -gt 65536 ]; then
     #     echo "continue"
-    #     continue  # Skip the iteration when i is 3
+    #     continue
+    # fi
+    # if [ $MAX_SEQ_LENGTH -lt 32768 ]; then
+    #     echo "continue"
+    #     continue
     # fi
     
+    # 0.2 = 0.2 0.05 0.0035
+    # 0.1 = 0.1 0.005 0.000166
+    # 0.05 = 0.05 0.00125 0.0000208
     RESULTS_DIR="${ROOT_DIR}/${MODEL_NAME}/${BENCHMARK}/${MAX_SEQ_LENGTH}"
     DATA_DIR="${RESULTS_DIR}/data"
     PRED_DIR="${RESULTS_DIR}/pred"
@@ -171,6 +192,11 @@ for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
         echo "doing ${MAX_SEQ_LENGTH}"
         
         for TASK in "${TASKS[@]}"; do
+            # if [ "${TASK}" != "qa_2" ]; then
+            #     echo "skipping task: ${TASK}"
+            #     continue
+            # fi
+
             echo "doing: ${TASK}"
 
             for POSTFIX in "${postfix[@]}"; do
@@ -189,8 +215,14 @@ for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
                 HIP_DEBUG=0 \
                 USE_ATTN_POSTFIX=$POSTFIX \
                 SAVE_TENSORS_FOR_PLOTTING=0 \
+                SAVE_TENSORS_FOR_PLOTTING_SUFFIX="-qa2" \
+                MAX_SEQ_LENGTH=$MAX_SEQ_LENGTH \
+                EMA_COEFFICIENT=0.5 \
+                ABG_ALPHA=0.05 \
+                ABG_BETA=0.00125 \
+                ABG_GAMMA=0.0000208 \
                 ATTN_IMPLEMENTATION=$attn \
-                CUDA_VISIBLE_DEVICES=1 \
+                CUDA_VISIBLE_DEVICES=4 \
                     python pred/call_api.py \
                         --data_dir ${DATA_DIR} \
                         --save_dir ${PRED_DIR} \
@@ -202,6 +234,7 @@ for MAX_SEQ_LENGTH in "${SEQ_LENGTHS[@]}"; do
                         --top_k ${TOP_K} \
                         --top_p ${TOP_P} \
                         --batch_size ${BATCH_SIZE} \
+                        --comment-tag cacheblend \
                         ${STOP_WORDS}
                 end_time=$(date +%s)
                 time_diff=$((end_time - start_time))
